@@ -67,7 +67,7 @@
   </style>
 </head>
 <body>
-
+<button onclick="loginWithSpotify()">登入 Spotify</button>
 <div class="container">
   <div id="loginStatus">
     <button id="loginButton" onclick="loginWithSpotify()">登入 Spotify 進行查詢</button>
@@ -98,6 +98,23 @@ let currentSearchType = 'track'; // 默認查詢歌曲
 // -------------------------------
 // 登入相關函式 (PKCE Flow)
 // -------------------------------
+ async function loginWithSpotify() {
+  await generateCodeVerifier();
+
+  const hashed = await sha256(codeVerifier);
+  const challenge = base64urlencode(hashed);
+
+  let authUrl = "https://accounts.spotify.com/authorize";
+  authUrl += "?response_type=code";
+  authUrl += "&client_id=" + clientId;
+  authUrl += "&code_challenge_method=S256";
+  authUrl += "&code_challenge=" + challenge;
+  authUrl += "&redirect_uri=" + encodeURIComponent(redirectUri);
+  authUrl += "&scope=user-read-private";
+
+  window.location = authUrl;
+}
+
 async function generateCodeVerifier() {
   codeVerifier = Array(56).fill(0).map(x => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 62)]).join('');
   localStorage.setItem("code_verifier", codeVerifier);
