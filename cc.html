@@ -194,6 +194,25 @@ async function loadLyrics(artist, title) {
   try {
     const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
     const data = await res.json();
+
+    if (data.lyrics) {
+      lyrics.innerText = data.lyrics;
+    } else {
+      const geniusSearch = `https://genius.com/search?q=${encodeURIComponent(artist + ' ' + title)}`;
+      lyrics.innerHTML = `找不到完整歌詞
+
+改用 Genius 搜尋結果：
+<a href="${geniusSearch}" target="_blank" style="color:#22c55e">${artist} - ${title}</a>`;
+    }
+  } catch {
+    const geniusSearch = `https://genius.com/search?q=${encodeURIComponent(artist + ' ' + title)}`;
+    lyrics.innerHTML = `歌詞查詢失敗
+
+改用 Genius 搜尋結果：
+<a href="${geniusSearch}" target="_blank" style="color:#22c55e">${artist} - ${title}</a>`;
+  }
+}/${encodeURIComponent(title)}`);
+    const data = await res.json();
     lyrics.innerText = data.lyrics || '找不到歌詞';
   } catch {
     lyrics.innerText = '歌詞查詢失敗';
