@@ -114,18 +114,34 @@ const clientId = "281855304b7d42258c82864dacefd7d0";
 const redirectUri = "https://shencx2010.github.io/cc.html";
 let accessToken = null;
 
+/* ===== Spotify 登入 ===== */
 async function loginWithSpotify() {
-  const verifier = Array(64).fill(0).map(() => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 62)]).join('');
+  const verifier = Array(64).fill(0).map(() =>
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 62)]
+  ).join('');
   localStorage.setItem('code_verifier', verifier);
 
-  const hashed = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  const hashed = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(verifier)
+  );
+
   const challenge = btoa(String.fromCharCode(...new Uint8Array(hashed)))
     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-  const url = `https://accounts.spotify.com/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge_method=S256&code_challenge=${challenge}&scope=user-read-private`;
+  const url =
+    `https://accounts.spotify.com/authorize` +
+    `?response_type=code` +
+    `&client_id=${clientId}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&code_challenge_method=S256` +
+    `&code_challenge=${challenge}` +
+    `&scope=user-read-private`;
+
   window.location = url;
 }
 
+/* ===== 取得 Access Token ===== */
 async function fetchAccessToken(code) {
   const body = new URLSearchParams({
     client_id: clientId,
@@ -146,53 +162,83 @@ async function fetchAccessToken(code) {
   document.getElementById('loginStatus').innerText = '登入成功，可以查詢';
 }
 
+/* ===== 搜尋音樂（含 Genius fallback） ===== */
 async function searchMusic() {
   const q = searchInput.value.trim();
   if (!accessToken || !q) return;
 
-  const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track,artist,album&limit=5`, {
-    headers: { Authorization: 'Bearer ' + accessToken }
-  });
+  const res = await fetch(
+    `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track,album&limit=5`,
+    { headers: { Authorization: 'Bearer ' + accessToken } }
+  );
 
   const data = await res.json();
   let html = '';
 
-  data.tracks?.items.forEach(t => {
-    const img = t.album.images[0]?.url || '';
-    html += `
+  const hasTracks = data.tracks?.items?.length > 0;
+  const hasAlbums = data.albums?.items?.length > 0;
+
+  if (hasTracks) {
+    data.tracks.items.forEach(t => {
+      const img = t.album.images[0]?.url || '';
+      html += `
+        <div class="card">
+          <img class="cover" src="${img}">
+          <div class="card-content">
+            <div class="card-title">${t.name}</div>
+            <div>歌手：${t.artists[0].name}</div>
+            <a href="${t.uri}">播放</a>
+            <a href="javascript:loadLyrics('${t.artists[0].name}','${t.name}')">歌詞</a>
+          </div>
+        </div>`;
+    });
+  }
+
+  if (hasAlbums) {
+    data.albums.items.forEach(a => {
+      const img = a.images[0]?.url || '';
+      html += `
+        <div class="card">
+          <img class="cover" src="${img}">
+          <div class="card-content">
+            <div class="card-title">${a.name}</div>
+            <div>歌手：${a.artists[0].name}</div>
+          </div>
+        </div>`;
+    });
+  }
+
+  /* 🔹 Spotify 完全沒結果 → Genius 搜尋 */
+  if (!hasTracks && !hasAlbums) {
+    const geniusUrl = `https://genius.com/search?q=${encodeURIComponent(q)}`;
+    html = `
       <div class="card">
-        <img class="cover" src="${img}">
         <div class="card-content">
-          <div class="card-title">${t.name}</div>
-          <div>歌手：${t.artists[0].name}</div>
-          <a href="${t.uri}">播放</a>
-          <a href="javascript:loadLyrics('${t.artists[0].name}','${t.name}')">歌詞</a>
+          <div class="card-title">Spotify 找不到結果</div>
+          <div style="margin-top:6px">
+            改用 Genius 搜尋：
+            <br>
+            <a href="${geniusUrl}" target="_blank">
+              🔍 在 Genius 搜尋「${q}」
+            </a>
+          </div>
         </div>
       </div>`;
-  });
+  }
 
-  data.albums?.items.forEach(a => {
-    const img = a.images[0]?.url || '';
-    html += `
-      <div class="card">
-        <img class="cover" src="${img}">
-        <div class="card-content">
-          <div class="card-title">${a.name}</div>
-          <div>歌手：${a.artists[0].name}</div>
-        </div>
-      </div>`;
-  });
-
-  result.innerHTML = html || '找不到結果';
+  result.innerHTML = html;
   lyrics.style.display = 'none';
 }
 
+/* ===== 歌詞 ===== */
 async function loadLyrics(artist, title) {
   lyrics.style.display = 'block';
   lyrics.innerText = '歌詞載入中...';
 
   try {
-    const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
+    const res = await fetch(
+      `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`
+    );
     const data = await res.json();
     lyrics.innerText = data.lyrics || '找不到歌詞';
   } catch {
@@ -200,6 +246,7 @@ async function loadLyrics(artist, title) {
   }
 }
 
+/* ===== OAuth callback ===== */
 const code = new URLSearchParams(location.search).get('code');
 if (code) {
   fetchAccessToken(code);
