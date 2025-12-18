@@ -85,6 +85,8 @@
       padding: 10px;
       border-radius: 8px;
       font-size: 13px;
+      max-height: 200px; /* 限制歌詞高度 */
+      overflow-y: auto;  /* 歌詞內部捲動 */
     }
     #loginStatus {
       background: #334155;
@@ -107,7 +109,7 @@
   </div>
 
   <div class="result" id="result"></div>
-  <div id="lyrics"></div>
+  <div id="lyrics" style="display:none"></div>
 </div>
 
 <script>
@@ -198,9 +200,18 @@ async function searchMusic() {
 }
 
 async function loadLyrics(artist, title) {
+  // 每次點新歌曲時，先清空並顯示歌詞區（等於收合舊歌詞）
   lyrics.innerText = '歌詞載入中...';
+  lyrics.style.display = 'block';
+
   try {
     const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
+    const data = await res.json();
+    lyrics.innerText = data.lyrics || '找不到歌詞';
+  } catch {
+    lyrics.innerText = '歌詞查詢失敗';
+  }
+}/${encodeURIComponent(title)}`);
     const data = await res.json();
     lyrics.innerText = data.lyrics || '找不到歌詞';
   } catch {
