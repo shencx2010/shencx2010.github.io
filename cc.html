@@ -1,309 +1,217 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <title>Spotify 音樂查詢</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: white;
-    }
-    .container {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      width: 260px;
-    }
-    .box {
-      background: #1e293b;
-      padding: 12px;
-      border-radius: 6px;
-      display: flex;
-      gap: 6px;
-    }
-    input {
-      flex: 1;
-      padding: 6px;
-      border-radius: 4px;
-      border: none;
-      color: black; /* 確保輸入框文字可見 */
-    }
-    button {
-      padding: 6px 10px;
-      border: none;
-      border-radius: 4px;
-      background: #22c55e;
-      color: black;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-    .result {
-      margin-top: 10px;
-      background: #020617;
-      padding: 10px;
-      border-radius: 6px;
-      font-size: 14px;
-      line-height: 1.6;
-      max-height: 300px;
-      overflow-y: auto;
-      white-space: pre-wrap; /* 保持換行 */
-    }
-    .result a {
-      text-decoration: none;
-      font-weight: bold;
-      color: #22c55e;
-    }
-    #loginStatus {
-      padding: 10px;
-      background: #334155;
-      border-radius: 4px;
-      text-align: center;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>Spotify 音樂查詢</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+    }
+    .container {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .box {
+      background: #1e293b;
+      padding: 10px;
+      border-radius: 6px;
+      display: flex;
+      gap: 6px;
+    }
+    input {
+      flex: 1;
+      padding: 6px;
+      border-radius: 4px;
+      border: none;
+    }
+    button {
+      padding: 6px 10px;
+      border: none;
+      border-radius: 4px;
+      background: #22c55e;
+      cursor: pointer;
+    }
+
+    /* 🔹 搜尋結果卡片樣式 */
+    .result {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+    .card {
+      background: #020617;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.6;
+      box-shadow: 0 0 0 1px #1e293b;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .cover {
+      width: 64px;
+      height: 64px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .card-content {
+      flex: 1;
+    }
+    .card-title {
+      font-weight: bold;
+      font-size: 15px;
+    }
+    .card a {
+      color: #22c55e;
+      text-decoration: none;
+      margin-right: 8px;
+    }
+    #lyrics {
+      white-space: pre-wrap;
+      background: #020617;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    #loginStatus {
+      background: #334155;
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+    }
+  </style>
 </head>
 <body>
-<button onclick="loginWithSpotify()">登入 Spotify</button>
+
 <div class="container">
-  <div id="loginStatus">
-    <button id="loginButton" onclick="loginWithSpotify()">登入 Spotify 進行查詢</button>
-  </div>
+  <div id="loginStatus">
+    <button onclick="loginWithSpotify()">登入 Spotify</button>
+  </div>
 
-  <div class="box">
-    <input id="searchInput" placeholder="查歌曲、歌手或專輯">
-    <button onclick="searchMusic()">查詢</button>
-  </div>
+  <div class="box">
+    <input id="searchInput" placeholder="查歌曲、歌手或專輯">
+    <button onclick="searchMusic()">查詢</button>
+  </div>
 
-  <div class="result" id="result">查詢結果會顯示在這裡</div>
-  
-  <div class="result" id="lyrics"></div>
+  <div class="result" id="result"></div>
+  <div id="lyrics"></div>
 </div>
 
 <script>
-// -------------------------------
-// 你的 Spotify App 設定
-// -------------------------------
 const clientId = "281855304b7d42258c82864dacefd7d0";
-// ⚠️ 請確保這裡的 URI 與 Spotify Developer 儀表板中的 HTTPS 設定完全一致！
-const redirectUri = "https://shencx2010.github.io/cc.html"; 
-
+const redirectUri = "https://shencx2010.github.io/cc.html";
 let accessToken = null;
 let codeVerifier = null;
-let currentSearchType = 'track'; // 默認查詢歌曲
 
-// -------------------------------
-// 登入相關函式 (PKCE Flow)
-// -------------------------------
- async function loginWithSpotify() {
-  await generateCodeVerifier();
+async function loginWithSpotify() {
+  codeVerifier = Array(64).fill(0).map(() => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 62)]).join('');
+  localStorage.setItem("code_verifier", codeVerifier);
 
-  const hashed = await sha256(codeVerifier);
-  const challenge = base64urlencode(hashed);
+  const hashed = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(codeVerifier));
+  const challenge = btoa(String.fromCharCode(...new Uint8Array(hashed)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
-  let authUrl = "https://accounts.spotify.com/authorize";
-  authUrl += "?response_type=code";
-  authUrl += "&client_id=" + clientId;
-  authUrl += "&code_challenge_method=S256";
-  authUrl += "&code_challenge=" + challenge;
-  authUrl += "&redirect_uri=" + encodeURIComponent(redirectUri);
-  authUrl += "&scope=user-read-private";
-
+  const authUrl = `https://accounts.spotify.com/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge_method=S256&code_challenge=${challenge}&scope=user-read-private`;
   window.location = authUrl;
 }
 
-async function generateCodeVerifier() {
-  codeVerifier = Array(56).fill(0).map(x => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 62)]).join('');
-  localStorage.setItem("code_verifier", codeVerifier);
-}
-
-async function sha256(str) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(str);
-  return await crypto.subtle.digest("SHA-256", data);
-}
-
-function base64urlencode(a) {
-  return btoa(String.fromCharCode.apply(null, new Uint8Array(a)))
-    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-async function loginWithSpotify() {
-  await generateCodeVerifier();
-
-  const hashed = await sha256(codeVerifier);
-  const challenge = base64urlencode(hashed);
-
-  const scope = 'user-read-private user-read-email'; // 請求必要的權限
-
-  // ✅ 修正：Spotify 授權網址
-  let authUrl = "https://accounts.spotify.com/authorize";
-  authUrl += "?response_type=code";
-  authUrl += "&client_id=" + clientId;
-  authUrl += "&code_challenge_method=S256";
-  authUrl += "&code_challenge=" + challenge;
-  authUrl += "&redirect_uri=" + encodeURIComponent(redirectUri);
-  authUrl += "&scope=" + encodeURIComponent(scope);
-
-  window.location = authUrl;
-}
-
 async function fetchAccessToken(code) {
-  const verifier = localStorage.getItem("code_verifier");
+  const body = new URLSearchParams({
+    client_id: clientId,
+    grant_type: 'authorization_code',
+    code,
+    redirect_uri: redirectUri,
+    code_verifier: localStorage.getItem('code_verifier')
+  });
 
-  const body = new URLSearchParams({
-    client_id: clientId,
-    grant_type: "authorization_code",
-    code: code,
-    redirect_uri: redirectUri,
-    code_verifier: verifier
-  });
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body
+  });
 
-  // ✅ 修正：Spotify Token API 網址
-  const res = await fetch("https://accounts.spotify.com/api/token", { 
-    method: "POST",
-    headers: {"Content-Type": "application/x-www-form-urlencoded"},
-    body: body
-  });
-
-  if (!res.ok) {
-    const errorData = await res.json();
-    console.error("Token Exchange Failed:", errorData);
-    document.getElementById("loginStatus").innerHTML = "登入失敗！請重新嘗試。";
-    return;
-  }
-
-  const data = await res.json();
-  accessToken = data.access_token;
-  document.getElementById("loginStatus").innerHTML = "登入成功，可以查詢音樂！";
+  const data = await res.json();
+  accessToken = data.access_token;
+  document.getElementById('loginStatus').innerText = '登入成功，可以查詢 🎵';
 }
 
-// -------------------------------
-// 搜尋音樂 (整合了所有查詢功能)
-// -------------------------------
 async function searchMusic() {
-  const q = document.getElementById("searchInput").value;
-  
-  if (!accessToken) {
-    document.getElementById("result").innerText = "請先點擊「登入 Spotify」按鈕！";
-    return;
-  }
+  const q = searchInput.value.trim();
+  if (!accessToken || !q) return;
 
-  if (!q.trim()) {
-    document.getElementById("result").innerText = "請輸入查詢內容。";
-    return;
-  }
-  
-  // ✅ 修正：Spotify 搜尋 API 網址和參數內嵌
-  const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track,artist,album&limit=5`;
+  const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track,artist,album&limit=5`, {
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
 
-  const res = await fetch(url, {
-    headers: { Authorization: "Bearer " + accessToken }
-  });
+  const data = await res.json();
+  let html = '';
 
-  if (res.status === 401) {
-    document.getElementById("loginStatus").innerHTML = "Token 已過期，請點擊「登入 Spotify」重新授權。";
-    document.getElementById("result").innerText = "Token 過期，請重新登入。";
-    accessToken = null;
-    return;
-  }
-  
-  if (!res.ok) {
-    document.getElementById("result").innerText = `查詢失敗: ${res.status}`;
-    return;
-  }
+  data.tracks?.items.forEach(t => {
+    const img = t.album.images[0]?.url || '';
+    html += `
+      <div class="card">
+        <img class="cover" src="${img}" alt="album cover">
+        <div class="card-content">
+          <div class="card-title">🎵 ${t.name}</div>
+          <div>歌手：${t.artists[0].name}</div>
+          <a href="${t.uri}">播放</a>
+          <a href="javascript:loadLyrics('${t.artists[0].name}','${t.name}')">歌詞</a>
+        </div>
+      </div>`;
+  });
 
-  const data = await res.json();
-  
-  let output = "";
+  data.artists?.items.forEach(a => {
+    html += `
+      <div class="card">
+        <div class="card-title">👤 ${a.name}</div>
+        <div>人氣：${a.popularity}</div>
+      </div>`;
+  });
 
-  // 1. 處理歌曲結果
-  if (data.tracks && data.tracks.items.length > 0) {
-    output += "◆ 歌曲結果:\n";
-    data.tracks.items.forEach(t => {
-      const spotifyUri = t.uri; 
-      const trackName = t.name;
-      const artistName = t.artists[0].name;
-      
-      output += `歌曲：${trackName}\n`;
-      output += `歌手：${artistName}\n`;
-      output += `[<a href="${spotifyUri}" target="_blank">立即播放</a>] `;
-      output += `[<a href="javascript:void(0);" onclick="loadLyrics('${artistName.replace(/'/g, "\\'")}', '${trackName.replace(/'/g, "\\'")}')">查歌詞</a>]\n\n`; // 新增跳脫單引號
-    });
-  }
-  
-  // 2. 處理歌手結果
-  if (data.artists && data.artists.items.length > 0) {
-    output += "◆ 歌手結果:\n";
-    data.artists.items.forEach(a => {
-      output += `歌手：${a.name}\n`;
-      output += `人氣：${a.popularity}\n\n`;
-    });
-  }
+  data.albums?.items.forEach(a => {
+    const img = a.images[0]?.url || '';
+    html += `
+      <div class="card">
+        <img class="cover" src="${img}" alt="album cover">
+        <div class="card-content">
+          <div class="card-title">💿 ${a.name}</div>
+          <div>歌手：${a.artists[0].name}</div>
+        </div>
+      </div>`;
+  });
 
-  // 3. 處理專輯結果
-  if (data.albums && data.albums.items.length > 0) {
-    output += "◆ 專輯結果:\n";
-    data.albums.items.forEach(a => {
-      output += `專輯：${a.name}\n`;
-      output += `歌手：${a.artists[0].name}\n\n`;
-    });
-  }
-  
-  document.getElementById("result").innerHTML = output || "找不到任何結果。";
-  document.getElementById("lyrics").innerText = ""; // 搜尋時清除歌詞
+  result.innerHTML = html || '找不到結果';
+  lyrics.innerText = '';
 }
 
-// -------------------------------
-// 取得歌詞（使用 lyrics.ovh）
-// -------------------------------
 async function loadLyrics(artist, title) {
-  const lyricsElement = document.getElementById("lyrics");
-  lyricsElement.innerText = "歌詞查詢中...";
-  
-  // 注意：如果歌詞 API 網址出現 CORS 問題，您可能需要找其他來源或使用代理。
-  const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`;
-  
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-  
-    if (data.lyrics) {
-      lyricsElement.innerText = "--- 歌詞 ---\n\n" + data.lyrics;
-    } else {
-      lyricsElement.innerText = `找不到 ${artist} - ${title} 的歌詞 :(`;
-    }
-  } catch (e) {
-    lyricsElement.innerText = "歌詞 API 查詢失敗。";
-  }
+  lyrics.innerText = '歌詞載入中...';
+  try {
+    const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
+    const data = await res.json();
+    lyrics.innerText = data.lyrics || '找不到歌詞';
+  } catch {
+    lyrics.innerText = '歌詞查詢失敗';
+  }
 }
 
-// -------------------------------
-// 頁面載入時的初始化 (自動解析 Code)
-// -------------------------------
-(async function() {
-  const loginStatusElement = document.getElementById("loginStatus");
-  const loginButton = document.getElementById("loginButton");
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get("code");
-  
-  if (code) {
-    loginStatusElement.innerHTML = "正在交換 Token，請稍候...";
-    loginButton.style.display = 'none'; // 登入中，隱藏按鈕
-    await fetchAccessToken(code);
-    
-    // 清理網址列，避免重複交換 code
-    history.replaceState({}, document.title, redirectUri);
-  } else if (!accessToken) {
-    // 這裡不改變 innerHTML，確保按鈕還在，只確保它顯示
-    loginButton.style.display = 'block';
-    loginStatusElement.innerHTML = "請點擊按鈕登入 Spotify 進行授權。"; // 修正：只更新文字
-  }
-})();
+const code = new URLSearchParams(location.search).get('code');
+if (code) {
+  fetchAccessToken(code);
+  history.replaceState({}, '', redirectUri);
+}
 </script>
-
 </body>
 </html>
