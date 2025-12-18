@@ -144,7 +144,7 @@ async function fetchAccessToken(code) {
 
   const data = await res.json();
   accessToken = data.access_token;
-  document.getElementById('loginStatus').innerText = '登入成功，可以查詢 🎵';
+  document.getElementById('loginStatus').innerText = '登入成功，可以查詢 ';
 }
 
 async function searchMusic() {
@@ -164,7 +164,7 @@ async function searchMusic() {
       <div class="card">
         <img class="cover" src="${img}" alt="album cover">
         <div class="card-content">
-          <div class="card-title">🎵 ${t.name}</div>
+          <div class="card-title"> ${t.name}</div>
           <div>歌手：${t.artists[0].name}</div>
           <a href="${t.uri}">播放</a>
           <a href="javascript:loadLyrics('${t.artists[0].name}','${t.name}')">歌詞</a>
@@ -175,7 +175,7 @@ async function searchMusic() {
   data.artists?.items.forEach(a => {
     html += `
       <div class="card">
-        <div class="card-title">👤 ${a.name}</div>
+        <div class="card-title"> ${a.name}</div>
         <div>人氣：${a.popularity}</div>
       </div>`;
   });
@@ -186,7 +186,7 @@ async function searchMusic() {
       <div class="card">
         <img class="cover" src="${img}" alt="album cover">
         <div class="card-content">
-          <div class="card-title">💿 ${a.name}</div>
+          <div class="card-title"> ${a.name}</div>
           <div>歌手：${a.artists[0].name}</div>
         </div>
       </div>`;
