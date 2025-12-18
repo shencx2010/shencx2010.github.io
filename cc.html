@@ -39,128 +39,172 @@
       border-radius: 4px;
       background: #22c55e;
       cursor: pointer;
-      color: white;
-      font-weight: bold;
     }
     .result {
       display: grid;
-@@ -116,7 +114,6 @@
+      grid-template-columns: 1fr;
+      gap: 10px;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+    .card {
+      background: #020617;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.6;
+      box-shadow: 0 0 0 1px #1e293b;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .cover {
+      width: 64px;
+      height: 64px;
+      border-radius: 6px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .card-content { flex: 1; }
+    .card-title {
+      font-weight: bold;
+      font-size: 15px;
+    }
+    .card a {
+      color: #22c55e;
+      text-decoration: none;
+      margin-right: 8px;
+    }
+    #lyrics {
+      display: none;
+      white-space: pre-wrap;
+      background: #020617;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    #loginStatus {
+      background: #334155;
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div id="loginStatus">
+    <button onclick="loginWithSpotify()">登入 Spotify</button>
+  </div>
+
+  <div class="box">
+    <input id="searchInput" placeholder="查歌曲、歌手或專輯">
+    <button onclick="searchMusic()">查詢</button>
+  </div>
+
+  <div class="result" id="result"></div>
+  <div id="lyrics"></div>
+</div>
+
+<script>
+const clientId = "281855304b7d42258c82864dacefd7d0";
 const redirectUri = "https://shencx2010.github.io/cc.html";
 let accessToken = null;
 
-// 修正 1：更正登入流程與 Spotify 官方 API 網址
 async function loginWithSpotify() {
   const verifier = Array(64).fill(0).map(() => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'[Math.floor(Math.random() * 62)]).join('');
   localStorage.setItem('code_verifier', verifier);
-@@ -129,41 +126,29 @@
+
+  const hashed = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  const challenge = btoa(String.fromCharCode(...new Uint8Array(hashed)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  const url = `https://accounts.spotify.com/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&code_challenge_method=S256&code_challenge=${challenge}&scope=user-read-private`;
   window.location = url;
 }
 
-// 修正 2：更正獲取 Token 的 API 網址與方法
 async function fetchAccessToken(code) {
   const body = new URLSearchParams({
     client_id: clientId,
     grant_type: 'authorization_code',
-    code: code,
     code,
     redirect_uri: redirectUri,
     code_verifier: localStorage.getItem('code_verifier')
   });
 
-  try {
-    const res = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body
-    });
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body
   });
 
-    const data = await res.json();
-    if (data.access_token) {
-      accessToken = data.access_token;
-      document.getElementById('loginStatus').innerText = '登入成功，可以查詢';
-    }
-  } catch (err) {
-    console.error('登入失敗', err);
-  }
   const data = await res.json();
   accessToken = data.access_token;
   document.getElementById('loginStatus').innerText = '登入成功，可以查詢';
 }
 
-// 修正 3：更正搜尋 API 網址與拼接
 async function searchMusic() {
-  const q = document.getElementById('searchInput').value.trim();
-  const resultDiv = document.getElementById('result');
-  const lyricsDiv = document.getElementById('lyrics');
-  
-  if (!accessToken) { alert('請先登入 Spotify'); return; }
-  if (!q) return;
   const q = searchInput.value.trim();
   if (!accessToken || !q) return;
 
   const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track,artist,album&limit=5`, {
     headers: { Authorization: 'Bearer ' + accessToken }
-@@ -180,8 +165,8 @@
+  });
+
+  const data = await res.json();
+  let html = '';
+
+  data.tracks?.items.forEach(t => {
+    const img = t.album.images[0]?.url || '';
+    html += `
+      <div class="card">
+        <img class="cover" src="${img}">
         <div class="card-content">
           <div class="card-title">${t.name}</div>
           <div>歌手：${t.artists[0].name}</div>
-          <a href="${t.external_urls.spotify}" target="_blank">播放</a>
-          <a href="javascript:loadLyrics('${t.artists[0].name.replace(/'/g, "\\'")}','${t.name.replace(/'/g, "\\'")}')">歌詞</a>
           <a href="${t.uri}">播放</a>
           <a href="javascript:loadLyrics('${t.artists[0].name}','${t.name}')">歌詞</a>
         </div>
       </div>`;
   });
-@@ -198,39 +183,28 @@
+
+  data.albums?.items.forEach(a => {
+    const img = a.images[0]?.url || '';
+    html += `
+      <div class="card">
+        <img class="cover" src="${img}">
+        <div class="card-content">
+          <div class="card-title">${a.name}</div>
+          <div>歌手：${a.artists[0].name}</div>
+        </div>
       </div>`;
   });
 
-  resultDiv.innerHTML = html || '找不到結果';
-  lyricsDiv.style.display = 'none';
   result.innerHTML = html || '找不到結果';
   lyrics.style.display = 'none';
 }
 
 async function loadLyrics(artist, title) {
-  const lyricsDiv = document.getElementById('lyrics');
-  lyricsDiv.style.display = 'block';
-  lyricsDiv.innerText = '歌詞載入中...';
   lyrics.style.display = 'block';
   lyrics.innerText = '歌詞載入中...';
 
   try {
     const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
     const data = await res.json();
-
-    if (data.lyrics) {
-      lyricsDiv.innerText = data.lyrics;
-    } else {
-      const geniusSearch = `https://genius.com/search?q=${encodeURIComponent(artist + ' ' + title)}`;
-      lyricsDiv.innerHTML = `找不到完整歌詞<br><br>改用 Genius 搜尋結果：<br><a href="${geniusSearch}" target="_blank" style="color:#22c55e">${artist} - ${title}</a>`;
-    }
     lyrics.innerText = data.lyrics || '找不到歌詞';
   } catch {
-    const geniusSearch = `https://genius.com/search?q=${encodeURIComponent(artist + ' ' + title)}`;
-    lyricsDiv.innerHTML = `歌詞查詢失敗<br><br>改用 Genius 搜尋結果：<br><a href="${geniusSearch}" target="_blank" style="color:#22c55e">${artist} - ${title}</a>`;
     lyrics.innerText = '歌詞查詢失敗';
   }
 }
 
-// 修正 4：初始化邏輯
-const urlParams = new URLSearchParams(window.location.search);
-const code = urlParams.get('code');
 const code = new URLSearchParams(location.search).get('code');
 if (code) {
   fetchAccessToken(code);
-  window.history.replaceState({}, document.title, redirectUri);
   history.replaceState({}, '', redirectUri);
 }
 </script>
-
 </body>
 </html>
